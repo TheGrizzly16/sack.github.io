@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Para Alguien Especial</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #fde2e6;
+            color: #5a3d5c;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(to right, #f78fb3, #e984a2);
+            padding: 30px 0;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 3em;
+            margin: 0;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .subtitle {
+            color: white;
+            font-size: 1.2em;
+            margin-top: 10px;
+            font-style: italic;
+        }
+        
+        .message-box {
+            background-color: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 1s ease-out forwards;
+        }
+        
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message-box p {
+            font-size: 1.2em;
+            line-height: 1.6;
+        }
+        
+        .heart {
+            color: #e95f8a;
+            font-size: 1.5em;
+            display: inline-block;
+            animation: heartbeat 1.5s infinite;
+        }
+        
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            25% { transform: scale(1.1); }
+            50% { transform: scale(1); }
+            75% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .floating-hearts {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .flower {
+            position: absolute;
+            font-size: 1.5em;
+            opacity: 0.6;
+            animation: float 20s linear infinite;
+        }
+        
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0.6;
+            }
+            100% {
+                transform: translateY(-50px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        .image-placeholder {
+            width: 250px;
+            height: 250px;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fdf5f7;
+            border-radius: 50%;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 5px solid white;
+        }
+        
+        .special-section {
+            margin: 50px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .special-section h2 {
+            position: relative;
+        }
+        
+        .special-section h2:after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, #e95f8a, transparent);
+        }
+        
+        footer {
+            margin-top: 50px;
+            padding: 20px;
+            background: linear-gradient(to right, #e984a2, #f78fb3);
+            color: white;
+        }
+        
+        .pulsing-button {
+            padding: 15px 30px;
+            background: linear-gradient(to right, #e95f8a, #f78fb3);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-top: 20px;
+            animation: pulse 2s infinite;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(233, 95, 138, 0.4);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 5px 15px rgba(233, 95, 138, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 5px 20px rgba(233, 95, 138, 0.6); }
+            100% { transform: scale(1); box-shadow: 0 5px 15px rgba(233, 95, 138, 0.4); }
+        }
+        
+        .pulsing-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 20px rgba(233, 95, 138, 0.6);
+        }
+        
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            max-width: 80%;
+        }
+        
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+        }
+        
+        .close-popup {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #e95f8a;
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-hearts" id="floating-hearts"></div>
+    
+    <header>
+        <h1>Para Mi Persona Especial</h1>
+        <div class="subtitle">Porque mereces todo y más...</div>
+    </header>
+    
+    <div class="container">
+        <div class="image-placeholder">
+            <img src="/api/placeholder/250/250" alt="Una foto especial juntos">
+        </div>
+        
+        <div class="message-box">
+            <h2>Para Ti <span class="heart">♥</span></h2>
+            <p>Desde el momento en que entraste en mi vida, todo cambió. Los colores son más brillantes, las sonrisas más sinceras, y cada día se siente como una nueva aventura.</p>
+            <p>Quería crear algo especial para ti, algo que expresara lo que significa tenerte en mi vida. Un espacio donde pudiera escribir lo mucho que significas para mí.</p>
+        </div>
+        
+        <div class="special-section">
+            <h2>Razones por las que eres especial</h2>
+            <div class="message-box">
+                <p>Tu sonrisa ilumina hasta el día más oscuro <span class="heart">♥</span></p>
+            </div>
+            <div class="message-box">
+                <p>Tu forma de ser hace que quiera ser mejor persona cada día <span class="heart">♥</span></p>
+            </div>
+            <div class="message-box">
+                <p>Contigo, hasta los momentos simples se vuelven memorables <span class="heart">♥</span></p>
+            </div>
+            <div class="message-box">
+                <p>Tu corazón es el tesoro más valioso que he conocido <span class="heart">♥</span></p>
+            </div>
+        </div>
+        
+        <div class="message-box">
+            <h2>Un Poema Para Ti</h2>
+            <p>
+                En la melodía de mi corazón,<br>
+                tu nombre es la nota más dulce.<br>
+                En el lienzo de mi vida,<br>
+                tus sonrisas son los colores más brillantes.<br><br>
+                
+                No hay distancia que no cruzaría,<br>
+                ni tiempo que no esperaría.<br>
+                Porque cada momento contigo,<br>
+                es un tesoro que guardaré por siempre.<br><br>
+                
+                Te quiero hoy y siempre.
+            </p>
+        </div>
+        
+        <button class="pulsing-button" id="specialButton">Un mensaje especial para ti</button>
+        
+        <div id="overlay"></div>
+        <div id="popup">
+            <span class="close-popup">&times;</span>
+            <h2>Mi Promesa</h2>
+            <p>Prometo estar a tu lado en los buenos y malos momentos.</p>
+            <p>Prometo recordarte cada día lo especial que eres.</p>
+            <p>Prometo construir junto a ti recuerdos que duraran toda la vida.</p>
+            <p>Te quiero más de lo que las palabras pueden expresar.</p>
+            <div class="heart" style="font-size: 3em;">♥</div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>Con todo mi amor, siempre tuyo.</p>
+        <p>Hoy, mañana y siempre <span class="heart">♥</span></p>
+    </footer>
+
+    <script>
+        // Generar corazones y flores flotantes
+        const floatingHearts = document.getElementById('floating-hearts');
+        const emojis = ['♥', '🌸', '✨', '💕', '🌹'];
+        
+        for (let i = 0; i < 40; i++) {
+            const elem = document.createElement('div');
+            elem.className = 'flower';
+            elem.innerHTML = emojis[Math.floor(Math.random() * emojis.length)];
+            elem.style.left = Math.random() * 100 + 'vw';
+            elem.style.animationDuration = 15 + Math.random() * 10 + 's';
+            elem.style.animationDelay = Math.random() * 5 + 's';
+            elem.style.fontSize = 0.5 + Math.random() * 1.5 + 'em';
+            floatingHearts.appendChild(elem);
+        }
+        
+        // Animación de aparición para los mensajes
+        const messages = document.querySelectorAll('.message-box');
+        messages.forEach((msg, index) => {
+            msg.style.animationDelay = (index * 0.3) + 's';
+        });
+        
+        // Funcionalidad del botón y popup
+        const specialButton = document.getElementById('specialButton');
+        const popup = document.getElementById('popup');
+        const overlay = document.getElementById('overlay');
+        const closePopup = document.querySelector('.close-popup');
+        
+        specialButton.addEventListener('click', function() {
+            popup.style.display = 'block';
+            overlay.style.display = 'block';
+        });
+        
+        closePopup.addEventListener('click', function() {
+            popup.style.display = 'none';
+            overlay.style.display = 'none';
+        });
+        
+        overlay.addEventListener('click', function() {
+            popup.style.display = 'none';
+            overlay.style.display = 'none';
+        });
+    </script>
+</body>
+</html>
