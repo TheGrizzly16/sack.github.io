@@ -1,56 +1,676 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
-    <title>Página</title>
-</head>
-<style>
-        nav {
-            background-color: rgb(0, 97, 139);
-            padding: 1%;
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Mario Clone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        nav ul {
+        body {
             display: flex;
-            list-style: none;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #222;
+            font-family: Arial, sans-serif;
         }
-
-        nav ul li {
-            margin-left: 2rem;
+        #gameCanvas {
+            border: 2px solid #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
-
-        nav ul li a {
-            color: var(--white);
-            text-decoration: none;
-            font-size: 1.1rem;
-            transition: color 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 500;
-        }
-
-        nav ul li a:hover {
-            color: var(--accent-color);
-        }
-</style>
+    </style>
+</head>
 <body>
-    <nav>
-        <ul>
-            <li><a href="index.html">Index 1</a></li>
-            <li><a href="index2.html">Index 2</a></li>
-        </ul>
-    </nav>
-    <center><form><br>
-        <label for="nombre">Nombre:</label>
-        <input type="text" name="nombre" id="nombre" required><br><br>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-        <label for="apellidos">Apellidos:</label>
-        <input type="text" name="apellidos" id="apellidos" required><br><br>
+        const WIDTH = 800, HEIGHT = 600;
+        const GRAVITY = 0.5;
+        const JUMP_FORCE = -12;
+        const PLAYER_SPEED = 5;
+        const ENEMY_SPEED = 2;
+        const INITIAL_LIVES = 3;
+        const FPS = 60;
 
-        <label for="matricula">Matrícula:</label>
-        <input type="text" name="matricula" id="matricula" required><br><br>
+        let gameState = 'menu';
+        let currentLevel = 1;
+        let totalScore = 0;
+        let menuSelected = 0;
+        let highScores = JSON.parse(localStorage.getItem('marioScores') || '[]');
 
-        <input type="submit" value="Enviar">
-    </form></center>
-    </body>
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 30;
+                this.height = 40;
+                this.velY = 0;
+                this.velX = 0;
+                this.jumping = false;
+                this.direction = 1;
+                this.onGround = false;
+                this.score = 0;
+                this.lives = INITIAL_LIVES;
+                this.invincible = false;
+                this.invincibleTimer = 0;
+                this.coinsCollected = 0;
+            }
+
+            update(platforms, enemies, coins, flag, totalCoins) {
+                if (this.invincible) {
+                    this.invincibleTimer--;
+                    if (this.invincibleTimer <= 0) this.invincible = false;
+                }
+
+                this.velY += GRAVITY;
+                this.y += this.velY;
+                this.x += this.velX;
+
+                this.onGround = false;
+                for (let platform of platforms) {
+                    if (this.collidesWith(platform)) {
+                        if (this.velY > 0) {
+                            this.y = platform.y - this.height;
+                            this.velY = 0;
+                            this.onGround = true;
+                            this.jumping = false;
+                        } else if (this.velY < 0) {
+                            this.y = platform.y + platform.height;
+                            this.velY = 0;
+                        }
+                    }
+                }
+
+                for (let i = coins.length - 1; i >= 0; i--) {
+                    if (this.collidesWith(coins[i])) {
+                        coins.splice(i, 1);
+                        this.score += 10;
+                        this.coinsCollected++;
+                    }
+                }
+
+                if (flag && this.collidesWith(flag)) {
+                    if (this.coinsCollected >= totalCoins) {
+                        this.score += 500;
+                        return 'level_complete';
+                    } else {
+                        return 'need_more_coins';
+                    }
+                }
+
+                if (!this.invincible) {
+                    for (let i = enemies.length - 1; i >= 0; i--) {
+                        if (this.collidesWith(enemies[i])) {
+                            if (this.velY > 0 && this.y + this.height < enemies[i].y + 15) {
+                                enemies.splice(i, 1);
+                                this.velY = JUMP_FORCE / 2;
+                                this.score += 50;
+                            } else {
+                                this.takeDamage();
+                            }
+                        }
+                    }
+                }
+
+                if (this.x < 0) this.x = 0;
+                if (this.x + this.width > WIDTH) this.x = WIDTH - this.width;
+                if (this.y < 0) this.y = 0;
+                if (this.y + this.height > HEIGHT) {
+                    this.takeDamage();
+                    return 'fell';
+                }
+
+                return null;
+            }
+
+            collidesWith(obj) {
+                return this.x < obj.x + obj.width &&
+                       this.x + this.width > obj.x &&
+                       this.y < obj.y + obj.height &&
+                       this.y + this.height > obj.y;
+            }
+
+            takeDamage() {
+                if (!this.invincible) {
+                    this.lives--;
+                    if (this.lives > 0) {
+                        this.invincible = true;
+                        this.invincibleTimer = 120;
+                        this.x = 50;
+                        this.y = HEIGHT - 100;
+                        this.velY = 0;
+                        this.velX = 0;
+                    }
+                }
+            }
+
+            jump() {
+                if (this.onGround) {
+                    this.velY = JUMP_FORCE;
+                    this.jumping = true;
+                    this.onGround = false;
+                }
+            }
+
+            draw() {
+                if (this.invincible && this.invincibleTimer % 10 < 5) return;
+                
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(this.x, this.y + 10, 30, 30);
+                ctx.fillStyle = '#ffc896';
+                ctx.fillRect(this.x + 5, this.y, 20, 10);
+                ctx.fillStyle = '#91653f';
+                ctx.fillRect(this.x, this.y + 35, 10, 5);
+                ctx.fillRect(this.x + 20, this.y + 35, 10, 5);
+                ctx.fillStyle = '#000096';
+                ctx.fillRect(this.x + 10, this.y + 20, 10, 20);
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(this.x, this.y, 30, 5);
+            }
+        }
+
+        class Platform {
+            constructor(x, y, width, height, isBrick = false) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.isBrick = isBrick;
+            }
+
+            draw() {
+                const blockSize = 30;
+                for (let i = 0; i < this.width; i += blockSize) {
+                    for (let j = 0; j < this.height; j += blockSize) {
+                        if (this.isBrick) {
+                            ctx.fillStyle = '#b46432';
+                            ctx.fillRect(this.x + i, this.y + j, blockSize, blockSize);
+                            ctx.strokeStyle = '#000';
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(this.x + i, this.y + j + blockSize/3);
+                            ctx.lineTo(this.x + i + blockSize, this.y + j + blockSize/3);
+                            ctx.moveTo(this.x + i, this.y + j + 2*blockSize/3);
+                            ctx.lineTo(this.x + i + blockSize, this.y + j + 2*blockSize/3);
+                            ctx.stroke();
+                        } else {
+                            ctx.fillStyle = '#ffa500';
+                            ctx.fillRect(this.x + i, this.y + j, blockSize, blockSize);
+                            ctx.fillStyle = '#ffff00';
+                            ctx.fillRect(this.x + i + 2, this.y + j + 2, blockSize - 4, blockSize - 4);
+                            ctx.fillStyle = '#ffa500';
+                            ctx.font = '20px Arial';
+                            ctx.fillText('?', this.x + i + 10, this.y + j + 22);
+                        }
+                    }
+                }
+            }
+        }
+
+        class Enemy {
+            constructor(x, y, platform) {
+                this.x = x - 15;
+                this.y = y - 30;
+                this.width = 30;
+                this.height = 30;
+                this.platform = platform;
+                this.speed = ENEMY_SPEED;
+                this.direction = 1;
+            }
+
+            update() {
+                this.x += this.speed * this.direction;
+                const centerX = this.x + this.width / 2;
+                if (centerX < this.platform.x || centerX > this.platform.x + this.platform.width) {
+                    this.direction *= -1;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = '#91653f';
+                ctx.beginPath();
+                ctx.arc(this.x + 15, this.y + 15, 15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#643200';
+                ctx.fillRect(this.x + 5, this.y + 25, 8, 5);
+                ctx.fillRect(this.x + 17, this.y + 25, 8, 5);
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x + 10, this.y + 10, 4, 0, Math.PI * 2);
+                ctx.arc(this.x + 20, this.y + 10, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(this.x + 10, this.y + 10, 2, 0, Math.PI * 2);
+                ctx.arc(this.x + 20, this.y + 10, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Coin {
+            constructor(x, y) {
+                this.x = x - 7.5;
+                this.y = y - 7.5;
+                this.width = 15;
+                this.height = 15;
+                this.scale = 1.0;
+                this.scaleDir = -0.05;
+                this.timer = 0;
+            }
+
+            update() {
+                this.timer++;
+                if (this.timer >= 5) {
+                    this.timer = 0;
+                    this.scale += this.scaleDir;
+                    if (this.scale <= 0.7 || this.scale >= 1.0) {
+                        this.scaleDir *= -1;
+                    }
+                }
+            }
+
+            draw() {
+                const size = 15 * this.scale;
+                const offset = (15 - size) / 2;
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(this.x + 7.5, this.y + 7.5, size / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffd700';
+                ctx.beginPath();
+                ctx.arc(this.x + 7.5, this.y + 7.5, size / 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Flag {
+            constructor(x, y) {
+                this.x = x - 15;
+                this.y = y - 50;
+                this.width = 30;
+                this.height = 50;
+            }
+
+            draw() {
+                ctx.fillStyle = '#91653f';
+                ctx.fillRect(this.x + 5, this.y, 5, 50);
+                ctx.fillStyle = '#4dba19';
+                ctx.beginPath();
+                ctx.moveTo(this.x + 10, this.y + 5);
+                ctx.lineTo(this.x + 28, this.y + 15);
+                ctx.lineTo(this.x + 10, this.y + 25);
+                ctx.fill();
+            }
+        }
+
+        function createLevel(levelNum) {
+            const platforms = [];
+            const enemies = [];
+            const coins = [];
+
+            platforms.push(new Platform(0, HEIGHT - 50, WIDTH, 50, false));
+
+            if (levelNum === 1) {
+                platforms.push(new Platform(100, 450, 200, 30, true));
+                platforms.push(new Platform(400, 400, 150, 30, false));
+                platforms.push(new Platform(200, 300, 100, 30, true));
+                platforms.push(new Platform(500, 250, 200, 30, false));
+                platforms.push(new Platform(50, 200, 100, 30, true));
+                platforms.push(new Platform(300, 180, 50, 30, false));
+                platforms.push(new Platform(650, 350, 120, 30, true));
+            } else {
+                platforms.push(new Platform(80, 470, 100, 30, true));
+                platforms.push(new Platform(250, 420, 80, 30, false));
+                platforms.push(new Platform(420, 370, 100, 30, true));
+                platforms.push(new Platform(600, 320, 80, 30, false));
+                platforms.push(new Platform(150, 270, 120, 30, true));
+                platforms.push(new Platform(450, 220, 100, 30, false));
+                platforms.push(new Platform(650, 170, 100, 30, true));
+                platforms.push(new Platform(300, 120, 150, 30, false));
+            }
+
+            for (let platform of platforms) {
+                if (platform.width > 100 && Math.random() > (levelNum === 1 ? 0.5 : 0.3)) {
+                    enemies.push(new Enemy(platform.x + platform.width / 2, platform.y, platform));
+                }
+            }
+
+            for (let platform of platforms) {
+                if (platform.y < HEIGHT - 50) {
+                    const numCoins = levelNum === 1 ? 3 : 4;
+                    for (let i = 0; i < numCoins; i++) {
+                        const x = platform.x + 20 + i * (platform.width / (numCoins + 1));
+                        const y = platform.y - 30;
+                        coins.push(new Coin(x, y));
+                    }
+                }
+            }
+
+            const extraCoins = levelNum === 1 ? 8 : 12;
+            for (let i = 0; i < extraCoins; i++) {
+                const x = Math.random() * (WIDTH - 100) + 50;
+                const y = Math.random() * (HEIGHT - 300) + 100;
+                coins.push(new Coin(x, y));
+            }
+
+            const flag = new Flag(WIDTH - (levelNum === 1 ? 80 : 60), HEIGHT - 50);
+            return { platforms, enemies, coins, flag, totalCoins: coins.length };
+        }
+
+        function drawBackground(level) {
+            if (level === 1) {
+                ctx.fillStyle = '#87ceeb';
+                ctx.fillRect(0, 0, WIDTH, HEIGHT);
+            } else {
+                ctx.fillStyle = '#3264c8';
+                ctx.fillRect(0, 0, WIDTH, HEIGHT);
+                ctx.fillStyle = '#fff';
+                for (let i = 0; i < 50; i++) {
+                    const x = Math.random() * WIDTH;
+                    const y = Math.random() * HEIGHT / 2;
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+
+            ctx.fillStyle = level === 1 ? '#fff' : '#c8c8dc';
+            for (let i = 0; i < 10; i++) {
+                const w = Math.random() * 50 + 50;
+                const h = Math.random() * 20 + 20;
+                const x = Math.random() * (WIDTH - w);
+                const y = Math.random() * HEIGHT / 3;
+                ctx.beginPath();
+                ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = level === 1 ? '#4dba19' : '#285a28';
+            for (let i = 0; i < 5; i++) {
+                const w = Math.random() * 100 + 100;
+                const h = Math.random() * 30 + 50;
+                const x = Math.random() * (WIDTH - w);
+                const y = HEIGHT - h - 50;
+                ctx.beginPath();
+                ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawHeart(x, y) {
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(x + 7, y + 7, 5, 0, Math.PI * 2);
+            ctx.arc(x + 13, y + 7, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(x + 2, y + 9);
+            ctx.lineTo(x + 10, y + 18);
+            ctx.lineTo(x + 18, y + 9);
+            ctx.fill();
+        }
+
+        function drawMenu() {
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            ctx.fillStyle = '#ff0000';
+            ctx.font = 'bold 50px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('SUPER MARIO CLONE', WIDTH/2, 150);
+
+            const options = ['JUGAR', 'PUNTAJES', 'SALIR'];
+            ctx.font = '30px Arial';
+            for (let i = 0; i < options.length; i++) {
+                ctx.fillStyle = i === menuSelected ? '#ffff00' : '#fff';
+                const y = 250 + i * 70;
+                ctx.fillText(options[i], WIDTH/2, y);
+                if (i === menuSelected) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3;
+                    const textWidth = ctx.measureText(options[i]).width;
+                    ctx.strokeRect(WIDTH/2 - textWidth/2 - 10, y - 30, textWidth + 20, 40);
+                }
+            }
+        }
+
+        function drawHighScores() {
+            ctx.fillStyle = '#3264c8';
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            ctx.fillStyle = '#ffff00';
+            ctx.font = 'bold 40px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('MEJORES PUNTAJES', WIDTH/2, 80);
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '25px Arial';
+            if (highScores.length > 0) {
+                for (let i = 0; i < Math.min(10, highScores.length); i++) {
+                    const score = highScores[i];
+                    ctx.fillText(`${i+1}. ${score.name}: ${score.score} puntos`, WIDTH/2, 140 + i * 35);
+                }
+            } else {
+                ctx.fillText('No hay puntajes aún', WIDTH/2, HEIGHT/2);
+            }
+
+            ctx.fillStyle = '#ffff00';
+            ctx.fillText('Presiona ESC o ENTER para volver', WIDTH/2, HEIGHT - 40);
+        }
+
+        let player, platforms, enemies, coins, flag, totalCoins;
+        let levelComplete = false;
+        let gameOver = false;
+        let showCoinMessage = false;
+        let coinMessageTimer = 0;
+
+        function initGame() {
+            const level = createLevel(currentLevel);
+            platforms = level.platforms;
+            enemies = level.enemies;
+            coins = level.coins;
+            flag = level.flag;
+            totalCoins = level.totalCoins;
+            player = new Player(50, HEIGHT - 100);
+            player.score = totalScore;
+            levelComplete = false;
+            gameOver = false;
+            showCoinMessage = false;
+            coinMessageTimer = 0;
+        }
+
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            if (gameState === 'menu') {
+                if (e.key === 'ArrowUp') {
+                    menuSelected = (menuSelected - 1 + 3) % 3;
+                } else if (e.key === 'ArrowDown') {
+                    menuSelected = (menuSelected + 1) % 3;
+                } else if (e.key === 'Enter') {
+                    if (menuSelected === 0) {
+                        gameState = 'playing';
+                        currentLevel = 1;
+                        totalScore = 0;
+                        initGame();
+                    } else if (menuSelected === 1) {
+                        gameState = 'highscores';
+                    } else if (menuSelected === 2) {
+                        alert('¡Gracias por jugar!');
+                    }
+                }
+            } else if (gameState === 'highscores') {
+                if (e.key === 'Escape' || e.key === 'Enter') {
+                    gameState = 'menu';
+                }
+            } else if (gameState === 'playing') {
+                if (e.key === ' ' && !gameOver && !levelComplete) {
+                    player.jump();
+                }
+                if (e.key === 'Escape') {
+                    gameState = 'menu';
+                    currentLevel = 1;
+                }
+            } else if (gameState === 'gameover' || gameState === 'win') {
+                if (e.key === 'Escape') {
+                    gameState = 'menu';
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function saveScore(score) {
+            const name = prompt('¡Ingresa tu nombre!') || 'Jugador';
+            highScores.push({ name, score, date: Date.now() });
+            highScores.sort((a, b) => b.score - a.score);
+            highScores = highScores.slice(0, 10);
+            localStorage.setItem('marioScores', JSON.stringify(highScores));
+        }
+
+        function gameLoop() {
+            if (gameState === 'menu') {
+                drawMenu();
+            } else if (gameState === 'highscores') {
+                drawHighScores();
+            } else if (gameState === 'playing') {
+                if (!gameOver && !levelComplete) {
+                    if (keys['ArrowLeft']) {
+                        player.velX = -PLAYER_SPEED;
+                    } else if (keys['ArrowRight']) {
+                        player.velX = PLAYER_SPEED;
+                    } else {
+                        player.velX = 0;
+                    }
+
+                    const result = player.update(platforms, enemies, coins, flag, totalCoins);
+                    
+                    for (let enemy of enemies) enemy.update();
+                    for (let coin of coins) coin.update();
+
+                    if (result === 'level_complete') {
+                        levelComplete = true;
+                        totalScore = player.score;
+                        setTimeout(() => {
+                            currentLevel++;
+                            if (currentLevel > 2) {
+                                saveScore(totalScore);
+                                gameState = 'win';
+                            } else {
+                                initGame();
+                            }
+                        }, 2000);
+                    } else if (result === 'need_more_coins') {
+                        showCoinMessage = true;
+                        coinMessageTimer = 120;
+                    }
+
+                    if (player.lives <= 0) {
+                        gameOver = true;
+                        saveScore(player.score);
+                        setTimeout(() => {
+                            gameState = 'gameover';
+                        }, 2000);
+                    }
+                }
+
+                if (showCoinMessage) {
+                    coinMessageTimer--;
+                    if (coinMessageTimer <= 0) showCoinMessage = false;
+                }
+
+                drawBackground(currentLevel);
+                for (let platform of platforms) platform.draw();
+                for (let enemy of enemies) enemy.draw();
+                for (let coin of coins) coin.draw();
+                flag.draw();
+                player.draw();
+
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#fff';
+                ctx.font = '25px Arial';
+                ctx.fillText(`Score: ${player.score}`, 10, 30);
+                ctx.textAlign = 'right';
+                ctx.fillText(`Nivel: ${currentLevel}`, WIDTH - 10, 30);
+                
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffff00';
+                ctx.fillText(`Monedas: ${player.coinsCollected}/${totalCoins}`, WIDTH/2, 30);
+
+                for (let i = 0; i < player.lives; i++) {
+                    drawHeart(10 + i * 25, 45);
+                }
+
+                if (showCoinMessage) {
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+                    ctx.fillRect(WIDTH/2 - 180, HEIGHT/2 - 110, 360, 50);
+                    ctx.fillStyle = '#ff0000';
+                    ctx.font = 'bold 22px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('¡Necesitas todas las monedas!', WIDTH/2, HEIGHT/2 - 80);
+                }
+
+                if (levelComplete) {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.font = '25px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('¡NIVEL COMPLETADO!', WIDTH/2, HEIGHT/2 - 20);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('Preparando siguiente nivel...', WIDTH/2, HEIGHT/2 + 20);
+                }
+
+                if (gameOver) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.font = '25px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('GAME OVER', WIDTH/2, HEIGHT/2 - 40);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(`Puntaje Final: ${player.score}`, WIDTH/2, HEIGHT/2);
+                    ctx.fillStyle = '#4dba19';
+                    ctx.fillText('Tu puntaje ha sido guardado', WIDTH/2, HEIGHT/2 + 40);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('Presiona ESC para volver al menú', WIDTH/2, HEIGHT/2 + 80);
+                }
+            } else if (gameState === 'gameover') {
+                ctx.fillStyle = '#3264c8';
+                ctx.fillRect(0, 0, WIDTH, HEIGHT);
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 40px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', WIDTH/2, HEIGHT/2 - 60);
+                ctx.fillStyle = '#fff';
+                ctx.font = '30px Arial';
+                ctx.fillText(`Puntaje Final: ${player.score}`, WIDTH/2, HEIGHT/2);
+                ctx.fillStyle = '#4dba19';
+                ctx.fillText('Tu puntaje ha sido guardado', WIDTH/2, HEIGHT/2 + 40);
+                ctx.fillStyle = '#fff';
+                ctx.font = '25px Arial';
+                ctx.fillText('Presiona ESC para volver al menú', WIDTH/2, HEIGHT/2 + 90);
+            } else if (gameState === 'win') {
+                ctx.fillStyle = '#3264c8';
+                ctx.fillRect(0, 0, WIDTH, HEIGHT);
+                ctx.fillStyle = '#ffff00';
+                ctx.font = 'bold 40px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('¡JUEGO COMPLETADO!', WIDTH/2, HEIGHT/2 - 60);
+                ctx.fillStyle = '#fff';
+                ctx.font = '30px Arial';
+                ctx.fillText(`Puntaje Total: ${totalScore}`, WIDTH/2, HEIGHT/2);
+                ctx.font = '25px Arial';
+                ctx.fillText('Presiona ESC para volver al menú', WIDTH/2, HEIGHT/2 + 70);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
 </html>
